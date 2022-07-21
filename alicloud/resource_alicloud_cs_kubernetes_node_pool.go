@@ -4,7 +4,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"reflect"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/alibabacloud-go/tea/tea"
@@ -491,6 +493,68 @@ func resourceAlicloudCSKubernetesNodePool() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			"kubelet_configuration": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"registry_pull_qps": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"registry_burst": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"event_record_qps": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"event_burst": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"kube_api_qps": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"kube_api_burst": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"serialize_image_pulls": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"cpu_manager_policy": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: validation.StringInSlice([]string{"none", "static"}, false),
+						},
+						"eviction_hard": {
+							Type:     schema.TypeMap,
+							Optional: true,
+						},
+						"eviction_soft": {
+							Type:     schema.TypeMap,
+							Optional: true,
+						},
+						"eviction_soft_grace_period": {
+							Type:     schema.TypeMap,
+							Optional: true,
+						},
+						"system_reserved": {
+							Type:     schema.TypeMap,
+							Optional: true,
+						},
+						"kube_reserved": {
+							Type:     schema.TypeMap,
+							Optional: true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -542,6 +606,13 @@ func resourceAlicloudCSKubernetesNodePoolCreate(d *schema.ResourceData, meta int
 	// attach existing node
 	if v, ok := d.GetOk("instances"); ok && v != nil {
 		attachExistingInstance(d, meta)
+	}
+
+	// kubelet params
+	if _, ok = d.GetOk("kubelet_configuration"); ok {
+		if err := modifyNodePoolKubeletConfig(d, meta); err != nil {
+			return WrapErrorf(err, DefaultErrorMsg, d.Id(), "ModifyNodePoolKubeletConfig", AlibabaCloudSdkGoERROR)
+		}
 	}
 
 	return resourceAlicloudCSNodePoolRead(d, meta)
@@ -835,6 +906,14 @@ func resourceAlicloudCSNodePoolUpdate(d *schema.ResourceData, meta interface{}) 
 	})
 
 	update = false
+
+	// kubelet
+	if d.HasChange("kubelet_configuration") {
+		if err := modifyNodePoolKubeletConfig(d, meta); err != nil {
+			return WrapErrorf(err, DefaultErrorMsg, d.Id(), "ModifyNodePoolKubeletConfig", AlibabaCloudSdkGoERROR)
+		}
+	}
+
 	d.Partial(false)
 	return resourceAlicloudCSNodePoolRead(d, meta)
 }
@@ -1607,5 +1686,120 @@ func attachExistingInstance(d *schema.ResourceData, meta interface{}) error {
 		return WrapErrorf(err, IdMsg, d.Id())
 	}
 
+	return nil
+}
+
+func modifyNodePoolKubeletConfig(d *schema.ResourceData, meta interface{}) error {
+	parts, err := ParseResourceId(d.Id(), 2)
+	if err != nil {
+		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "ParseClusterID", ProviderERROR)
+	}
+	clusterId := parts[0]
+	nodepoolId := parts[1]
+
+	client, err := meta.(*connectivity.AliyunClient).NewRoaCsClient()
+	if err != nil {
+		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "InitClient", AlibabaCloudSdkGoERROR)
+	}
+
+	request := &roacs.ModifyClusterNodePoolRequest{
+		NodeConfig: &roacs.ModifyClusterNodePoolRequestNodeConfig{
+			KubeletConfiguration: &roacs.ModifyClusterNodePoolRequestNodeConfigKubeletConfiguration{},
+		},
+	}
+	if err = setKubeletConfigParams(d.Get("kubelet_configuration").([]interface{}), request); err != nil {
+		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "ParseKubeletConfigParams", ProviderERROR)
+	}
+
+	response, err := client.ModifyClusterNodePool(tea.String(clusterId), tea.String(nodepoolId), request)
+	log.Printf("[DEBUG] ModifyKubeletConfiguration Response: %v", response.String())
+	action := "ModifyNodePoolKubeletConfig"
+	if err != nil {
+		return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR, response.String())
+	}
+
+	if debugOn() {
+		requestMap := make(map[string]interface{})
+		requestMap["ClusterId"] = clusterId
+		requestMap["NodepoolId"] = nodepoolId
+		requestMap["Params"] = request
+		addDebug(action, response, request, requestMap)
+	}
+	return nil
+}
+
+func setKubeletConfigParams(l []interface{}, request *roacs.ModifyClusterNodePoolRequest) error {
+	if len(l) == 0 || l[0] == nil {
+		return nil
+	}
+
+	var (
+		intVal  int64
+		boolVal bool
+		err     error
+	)
+
+	m := l[0].(map[string]interface{})
+
+	if v, ok := m["registry_pull_qps"]; ok && reflect.ValueOf(v).String() != "" {
+		if intVal, err = strconv.ParseInt(v.(string), 10, 64); err != nil {
+			return WrapError(fmt.Errorf("failed to parse 'registry_pull_qps' due to %v", err))
+		}
+		request.NodeConfig.KubeletConfiguration.RegistryPullQPS = tea.Int64(intVal)
+	}
+	if v, ok := m["registry_burst"]; ok && reflect.ValueOf(v).String() != "" {
+		if intVal, err = strconv.ParseInt(v.(string), 10, 64); err != nil {
+			return WrapError(fmt.Errorf("failed to parse 'registry_burst' due to %v", err))
+		}
+		request.NodeConfig.KubeletConfiguration.RegistryBurst = tea.Int64(intVal)
+	}
+	if v, ok := m["event_record_qps"]; ok && reflect.ValueOf(v).String() != "" {
+		if intVal, err = strconv.ParseInt(v.(string), 10, 64); err != nil {
+			return WrapError(fmt.Errorf("failed to parse 'event_record_qps' due to %v", err))
+		}
+		request.NodeConfig.KubeletConfiguration.EventRecordQPS = tea.Int64(intVal)
+	}
+	if v, ok := m["event_burst"]; ok && reflect.ValueOf(v).String() != "" {
+		if intVal, err = strconv.ParseInt(v.(string), 10, 64); err != nil {
+			return WrapError(fmt.Errorf("failed to parse 'event_burst' due to %v", err))
+		}
+		request.NodeConfig.KubeletConfiguration.EventBurst = tea.Int64(intVal)
+	}
+	if v, ok := m["kube_api_qps"]; ok && reflect.ValueOf(v).String() != "" {
+		if intVal, err = strconv.ParseInt(v.(string), 10, 64); err != nil {
+			return WrapError(fmt.Errorf("failed to parse 'kube_api_qps' due to %v", err))
+		}
+		request.NodeConfig.KubeletConfiguration.KubeAPIQPS = tea.Int64(intVal)
+	}
+	if v, ok := m["kube_api_burst"]; ok && reflect.ValueOf(v).String() != "" {
+		if intVal, err = strconv.ParseInt(v.(string), 10, 64); err != nil {
+			return WrapError(fmt.Errorf("failed to parse 'kube_api_burst' due to %v", err))
+		}
+		request.NodeConfig.KubeletConfiguration.KubeAPIBurst = tea.Int64(intVal)
+	}
+	if v, ok := m["serialize_image_pulls"]; ok && reflect.ValueOf(v).String() != "" {
+		if boolVal, err = strconv.ParseBool(v.(string)); err != nil {
+			return WrapError(fmt.Errorf("failed to parse 'serialize_image_pulls' due to %v", err))
+		}
+		request.NodeConfig.KubeletConfiguration.SerializeImagePulls = tea.Bool(boolVal)
+	}
+	if v, ok := m["cpu_manager_policy"]; ok && reflect.ValueOf(v).String() != "" {
+		request.NodeConfig.KubeletConfiguration.CpuManagerPolicy = tea.String(v.(string))
+	}
+	if v, ok := m["eviction_hard"]; ok && reflect.TypeOf(v).Kind() == reflect.Map {
+		request.NodeConfig.KubeletConfiguration.EvictionHard = v.(map[string]interface{})
+	}
+	if v, ok := m["eviction_soft"]; ok && reflect.TypeOf(v).Kind() == reflect.Map {
+		request.NodeConfig.KubeletConfiguration.EvictionSoft = v.(map[string]interface{})
+	}
+	if v, ok := m["eviction_soft_grace_period"]; ok && reflect.TypeOf(v).Kind() == reflect.Map {
+		request.NodeConfig.KubeletConfiguration.EvictionSoftGracePeriod = v.(map[string]interface{})
+	}
+	if v, ok := m["system_reserved"]; ok && reflect.TypeOf(v).Kind() == reflect.Map {
+		request.NodeConfig.KubeletConfiguration.SystemReserved = v.(map[string]interface{})
+	}
+	if v, ok := m["kube_reserved"]; ok && reflect.TypeOf(v).Kind() == reflect.Map {
+		request.NodeConfig.KubeletConfiguration.KubeReserved = v.(map[string]interface{})
+	}
 	return nil
 }
