@@ -287,9 +287,8 @@ func resourceAlicloudCSKubernetesNodePool() *schema.Resource {
 							Optional: true,
 						},
 						"effect": {
-							Type:         schema.TypeString,
-							Optional:     true,
-							ValidateFunc: validation.StringInSlice([]string{"NoSchedule", "NoExecute", "PreferNoSchedule"}, false),
+							Type:     schema.TypeString,
+							Optional: true,
 						},
 					},
 				},
