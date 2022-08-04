@@ -287,8 +287,9 @@ func resourceAlicloudCSKubernetesNodePool() *schema.Resource {
 							Optional: true,
 						},
 						"effect": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: validation.StringInSlice([]string{"NoSchedule", "NoExecute", "PreferNoSchedule"}, false),
 						},
 					},
 				},
@@ -555,6 +556,19 @@ func resourceAlicloudCSKubernetesNodePool() *schema.Resource {
 					},
 				},
 			},
+			"rollout_policy": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"max_unavailable": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -562,57 +576,51 @@ func resourceAlicloudCSKubernetesNodePool() *schema.Resource {
 func resourceAlicloudCSKubernetesNodePoolCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*connectivity.AliyunClient)
 	csService := CsService{client}
+
+	roaClient, err := client.NewRoaCsClient()
+	if err != nil {
+		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "InitClient", AlibabaCloudSdkGoERROR)
+	}
 	invoker := NewInvoker()
 
-	var requestInfo *cs.Client
+	var requestInfo *roacs.Client
 	var raw interface{}
 
 	clusterId := d.Get("cluster_id").(string)
 	// prepare args and set default value
-	args, err := buildNodePoolArgs(d, meta)
+	nodepoolArgs, err := buildNodePoolArgs(d, meta)
 	if err != nil {
-		return WrapErrorf(err, DefaultErrorMsg, "alicloud_cs_kubernetes_node_pool", "PrepareKubernetesNodePoolArgs", err)
+		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "PrepareKubernetesNodePoolArgs", ProviderERROR)
 	}
-
 	if err = invoker.Run(func() error {
-		raw, err = client.WithCsClient(func(csClient *cs.Client) (interface{}, error) {
-			return csClient.CreateNodePool(args, d.Get("cluster_id").(string))
-		})
+		raw, err = roaClient.CreateClusterNodePool(tea.String(clusterId), nodepoolArgs)
 		return err
 	}); err != nil {
-		return WrapErrorf(err, DefaultErrorMsg, "alicloud_cs_kubernetes_node_pool", "CreateKubernetesNodePool", raw)
+		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "CreateKubernetesNodePool", AlibabaCloudSdkGoERROR, raw)
 	}
 
 	if debugOn() {
 		requestMap := make(map[string]interface{})
-		requestMap["RegionId"] = common.Region(client.RegionId)
-		requestMap["Params"] = args
+		requestMap["RegionId"] = common.Region(tea.StringValue(roaClient.RegionId))
+		requestMap["Params"] = nodepoolArgs
 		addDebug("CreateKubernetesNodePool", raw, requestInfo, requestMap)
 	}
 
-	nodePool, ok := raw.(*cs.CreateNodePoolResponse)
+	nodepool, ok := raw.(*roacs.CreateClusterNodePoolResponse)
 	if ok != true {
-		return WrapErrorf(err, DefaultErrorMsg, "alicloud_cs_kubernetes_node_pool", "ParseKubernetesNodePoolResponse", raw)
+		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "ParseKubernetesNodePoolResponse", AlibabaCloudSdkGoERROR, raw)
 	}
-
-	d.SetId(fmt.Sprintf("%s%s%s", clusterId, COLON_SEPARATED, nodePool.NodePoolID))
+	d.SetId(fmt.Sprintf("%s%s%s", clusterId, COLON_SEPARATED, tea.StringValue(nodepool.Body.NodepoolId)))
 
 	// reset interval to 10s
 	stateConf := BuildStateConf([]string{"initial", "scaling"}, []string{"active"}, d.Timeout(schema.TimeoutCreate), 30*time.Second, csService.CsKubernetesNodePoolStateRefreshFunc(d.Id(), []string{"deleting", "failed"}))
 	if _, err := stateConf.WaitForState(); err != nil {
-		return WrapErrorf(err, "ResourceID:%s , TaskID:%s ", d.Id(), nodePool.TaskID)
+		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "WaitState", AlibabaCloudSdkGoERROR, nodepool)
 	}
 
 	// attach existing node
 	if v, ok := d.GetOk("instances"); ok && v != nil {
 		attachExistingInstance(d, meta)
-	}
-
-	// kubelet params
-	if _, ok = d.GetOk("kubelet_configuration"); ok {
-		if err := modifyNodePoolKubeletConfig(d, meta); err != nil {
-			return WrapErrorf(err, DefaultErrorMsg, d.Id(), "ModifyNodePoolKubeletConfig", AlibabaCloudSdkGoERROR)
-		}
 	}
 
 	return resourceAlicloudCSNodePoolRead(d, meta)
@@ -863,12 +871,6 @@ func resourceAlicloudCSNodePoolUpdate(d *schema.ResourceData, meta interface{}) 
 			resizeRequestMap["Args"] = args
 			addDebug("UpdateKubernetesNodePool", resoponse, resizeRequestMap)
 		}
-
-		stateConf := BuildStateConf([]string{"scaling", "updating", "removing"}, []string{"active"}, d.Timeout(schema.TimeoutUpdate), 10*time.Second, csService.CsKubernetesNodePoolStateRefreshFunc(d.Id(), []string{"deleting", "failed"}))
-
-		if _, err := stateConf.WaitForState(); err != nil {
-			return WrapErrorf(err, IdMsg, d.Id())
-		}
 	}
 
 	// attach or remove existing node
@@ -905,15 +907,23 @@ func resourceAlicloudCSNodePoolUpdate(d *schema.ResourceData, meta interface{}) 
 		return resource.NonRetryableError(Error("[DEBUG] The number of nodes is the same"))
 	})
 
-	update = false
-
 	// kubelet
 	if d.HasChange("kubelet_configuration") {
+		update = true
 		if err := modifyNodePoolKubeletConfig(d, meta); err != nil {
 			return WrapErrorf(err, DefaultErrorMsg, d.Id(), "ModifyNodePoolKubeletConfig", AlibabaCloudSdkGoERROR)
 		}
 	}
 
+	// wait for state
+	if update {
+		stateConf := BuildStateConf([]string{"scaling", "updating", "removing"}, []string{"active"}, d.Timeout(schema.TimeoutUpdate), 10*time.Second, csService.CsKubernetesNodePoolStateRefreshFunc(d.Id(), []string{"deleting", "failed"}))
+		if _, err := stateConf.WaitForState(); err != nil {
+			return WrapErrorf(err, IdMsg, d.Id())
+		}
+	}
+
+	update = false
 	d.Partial(false)
 	return resourceAlicloudCSNodePoolRead(d, meta)
 }
@@ -1072,7 +1082,202 @@ func resourceAlicloudCSNodePoolDelete(d *schema.ResourceData, meta interface{}) 
 	return nil
 }
 
-func buildNodePoolArgs(d *schema.ResourceData, meta interface{}) (*cs.CreateNodePoolRequest, error) {
+func buildNodePoolArgs(d *schema.ResourceData, meta interface{}) (*roacs.CreateClusterNodePoolRequest, error) {
+	client := meta.(*connectivity.AliyunClient)
+
+	password := d.Get("password").(string)
+	if password == "" {
+		if v := d.Get("kms_encrypted_password").(string); v != "" {
+			kmsService := KmsService{client}
+			decryptResp, err := kmsService.Decrypt(v, d.Get("kms_encryption_context").(map[string]interface{}))
+			if err != nil {
+				return nil, WrapError(err)
+			}
+			password = decryptResp
+		}
+	}
+
+	// required和带默认值的可以直接设置
+	creationArgs := &roacs.CreateClusterNodePoolRequest{
+		NodepoolInfo: &roacs.CreateClusterNodePoolRequestNodepoolInfo{
+			Name: tea.TransInterfaceToString(d.Get("name")),
+			Type: tea.String(defaultNodePoolType),
+		},
+		ScalingGroup: &roacs.CreateClusterNodePoolRequestScalingGroup{
+			VswitchIds:         tea.StringSlice(expandStringList(d.Get("vswitch_ids").([]interface{}))),
+			InstanceTypes:      tea.StringSlice(expandStringList(d.Get("instance_types").([]interface{}))),
+			LoginPassword:      tea.String(password),
+			SystemDiskCategory: tea.TransInterfaceToString(d.Get("system_disk_category")),
+			SystemDiskSize:     tea.Int64(int64(d.Get("system_disk_size").(int))),
+		},
+		NodeConfig:       &roacs.CreateClusterNodePoolRequestNodeConfig{},
+		KubernetesConfig: &roacs.CreateClusterNodePoolRequestKubernetesConfig{},
+	}
+
+	if v, ok := d.GetOk("key_name"); ok {
+		creationArgs.ScalingGroup.KeyPair = tea.TransInterfaceToString(v)
+	}
+	if v, ok := d.GetOk("security_group_id"); ok {
+		creationArgs.ScalingGroup.SecurityGroupId = tea.TransInterfaceToString(v)
+	}
+	if v, ok := d.GetOk("image_id"); ok {
+		creationArgs.ScalingGroup.ImageId = tea.TransInterfaceToString(v)
+	}
+	if v, ok := d.GetOk("node_name_mode"); ok {
+		creationArgs.KubernetesConfig.NodeNameMode = tea.TransInterfaceToString(v)
+	}
+
+	if v, ok := d.GetOkExists("node_count"); ok {
+		creationArgs.Count = tea.Int64(int64(v.(int)))
+	}
+	if v, ok := d.GetOkExists("desired_size"); ok {
+		size := int64(v.(int))
+		creationArgs.ScalingGroup.DesiredSize = tea.Int64(size)
+	}
+
+	setCreateNodePoolTags(creationArgs.ScalingGroup, d)
+	creationArgs.ScalingGroup.DataDisks = setCreateNodePoolDataDisks(d)
+	creationArgs.KubernetesConfig.Taints = setCreateNodePoolTaints(d)
+	creationArgs.KubernetesConfig.Labels = setNodePoolLables(d)
+
+	if v, ok := d.GetOk("instance_charge_type"); ok {
+		creationArgs.ScalingGroup.InstanceChargeType = tea.TransInterfaceToString(v)
+		if tea.StringValue(creationArgs.ScalingGroup.InstanceChargeType) == string(PrePaid) {
+			creationArgs.ScalingGroup.Period = tea.Int64(int64(d.Get("period").(int)))
+			creationArgs.ScalingGroup.PeriodUnit = tea.TransInterfaceToString(d.Get("period_unit"))
+			creationArgs.ScalingGroup.AutoRenew = tea.TransInterfaceToBool(d.Get("auto_renew"))
+			creationArgs.ScalingGroup.AutoRenewPeriod = tea.Int64(int64(d.Get("auto_renew_period").(int)))
+		}
+	}
+
+	// 系统盘加密，还不支持
+	if v, ok := d.GetOkExists("system_disk_encrypted"); ok {
+		creationArgs.ScalingGroup.SystemDiskEncrypted = tea.TransInterfaceToBool(v)
+		if tea.BoolValue(creationArgs.ScalingGroup.SystemDiskEncrypted) {
+			creationArgs.ScalingGroup.SystemDiskKmsKeyId = tea.TransInterfaceToString(d.Get("system_disk_kms_key"))
+			creationArgs.ScalingGroup.SystemDiskEncryptAlgorithm = tea.TransInterfaceToString(d.Get("system_disk_encrypt_algorithm"))
+		}
+	}
+
+	if v, ok := d.GetOk("deployment_set_id"); ok {
+		creationArgs.ScalingGroup.DeploymentsetId = tea.TransInterfaceToString(v)
+	}
+	if v, ok := d.GetOk("install_cloud_monitor"); ok {
+		creationArgs.KubernetesConfig.CmsEnabled = tea.TransInterfaceToBool(v)
+	}
+	if v, ok := d.GetOk("unschedulable"); ok {
+		creationArgs.KubernetesConfig.Unschedulable = tea.TransInterfaceToBool(v)
+	}
+	if v, ok := d.GetOk("user_data"); ok && v != "" {
+		data := v.(string)
+		_, base64DecodeError := base64.StdEncoding.DecodeString(data)
+		if base64DecodeError == nil {
+			creationArgs.KubernetesConfig.UserData = tea.String(data)
+		} else {
+			creationArgs.KubernetesConfig.UserData = tea.String(base64.StdEncoding.EncodeToString([]byte(data)))
+		}
+	}
+
+	// set auto scaling config
+	if v, ok := d.GetOk("scaling_policy"); ok {
+		creationArgs.ScalingGroup.ScalingPolicy = tea.TransInterfaceToString(v)
+	}
+	if v, ok := d.GetOk("scaling_config"); ok {
+		if sc, ok := v.([]interface{}); ok && len(sc) > 0 {
+			creationArgs.AutoScaling = setCreateAutoScalingConfig(sc)
+		}
+	}
+
+	// set management nodepool
+	if v, ok := d.GetOk("management"); ok {
+		if management, ok := v.([]interface{}); ok && len(management) > 0 {
+			creationArgs.Management = setCreateManagementNpConfig(management)
+		}
+	}
+
+	if v, ok := d.GetOk("system_disk_performance_level"); ok {
+		creationArgs.ScalingGroup.SystemDiskPerformanceLevel = tea.TransInterfaceToString(v)
+	}
+	if v, ok := d.GetOk("system_disk_snapshot_policy_id"); ok {
+		creationArgs.ScalingGroup.WorkerSystemDiskSnapshotPolicyId = tea.TransInterfaceToString(v)
+	}
+	if v, ok := d.GetOk("resource_group_id"); ok {
+		creationArgs.NodepoolInfo.ResourceGroupId = tea.TransInterfaceToString(v)
+	}
+
+	// setting spot instance
+	if v, ok := d.GetOk("spot_strategy"); ok {
+		creationArgs.ScalingGroup.SpotStrategy = tea.TransInterfaceToString(v)
+	}
+	if v, ok := d.GetOk("spot_price_limit"); ok {
+		creationArgs.ScalingGroup.SpotPriceLimit = setCreateSpotPriceLimit(v.([]interface{}))
+	}
+	if v, ok := d.GetOk("internet_charge_type"); ok {
+		creationArgs.ScalingGroup.InternetChargeType = tea.TransInterfaceToString(v)
+	}
+	if v, ok := d.GetOk("internet_max_bandwidth_out"); ok {
+		creationArgs.ScalingGroup.InternetMaxBandwidthOut = tea.Int64(int64(v.(int)))
+	}
+
+	if v, ok := d.GetOk("security_group_ids"); ok {
+		creationArgs.ScalingGroup.SecurityGroupIds = tea.StringSlice(expandStringList(v.([]interface{})))
+	}
+
+	// os platform
+	if v, ok := d.GetOk("platform"); ok {
+		creationArgs.ScalingGroup.Platform = tea.TransInterfaceToString(v)
+	}
+	if v, ok := d.GetOk("image_type"); ok {
+		creationArgs.ScalingGroup.ImageType = tea.TransInterfaceToString(v)
+	}
+
+	// runtime
+	if v, ok := d.GetOk("runtime_name"); ok {
+		creationArgs.KubernetesConfig.Runtime = tea.TransInterfaceToString(v)
+	}
+	if v, ok := d.GetOk("runtime_version"); ok {
+		creationArgs.KubernetesConfig.RuntimeVersion = tea.TransInterfaceToString(v)
+	}
+
+	// cis/soc
+	cisEnabled, socEnabled := false, false
+	if v, ok := d.GetOkExists("cis_enabled"); ok {
+		cisEnabled = v.(bool)
+	}
+	if v, ok := d.GetOkExists("soc_enabled"); ok {
+		socEnabled = v.(bool)
+	}
+	if (cisEnabled || socEnabled) && tea.StringValue(creationArgs.ScalingGroup.Platform) != "AliyunLinux" && tea.StringValue(creationArgs.ScalingGroup.ImageType) != "AliyunLinux" {
+		return creationArgs, fmt.Errorf("SOC/CIS security reinforcement is not supported for current platform/image_type")
+	}
+	if cisEnabled && socEnabled {
+		return creationArgs, fmt.Errorf("setting SOC and CIS together is not supported")
+	} else if cisEnabled {
+		creationArgs.ScalingGroup.CisEnabled = tea.Bool(cisEnabled)
+	} else if socEnabled {
+		creationArgs.ScalingGroup.SocEnabled = tea.Bool(socEnabled)
+	}
+
+	if v, ok := d.GetOk("rds_instances"); ok {
+		creationArgs.ScalingGroup.RdsInstances = tea.StringSlice(expandStringList(v.([]interface{})))
+	}
+	if v, ok := d.GetOk("cpu_policy"); ok {
+		creationArgs.KubernetesConfig.CpuPolicy = tea.TransInterfaceToString(v)
+	}
+
+	// kubelet
+	if v, ok := d.GetOk("kubelet_configuration"); ok {
+		nodeConfig, err := setCreateKubeletConfigParams(v.([]interface{}))
+		if err != nil {
+			return creationArgs, WrapError(err)
+		}
+		creationArgs.NodeConfig = nodeConfig
+	}
+
+	return creationArgs, nil
+}
+
+func buildNodePoolArgs_(d *schema.ResourceData, meta interface{}) (*cs.CreateNodePoolRequest, error) {
 	client := meta.(*connectivity.AliyunClient)
 
 	vpcService := VpcService{client}
@@ -1275,6 +1480,24 @@ func buildNodePoolArgs(d *schema.ResourceData, meta interface{}) (*cs.CreateNode
 	return creationArgs, nil
 }
 
+func convertRoaCsTags(d *schema.ResourceData) ([]*roacs.CreateClusterNodePoolRequestScalingGroupTags, error) {
+	tags := make([]*roacs.CreateClusterNodePoolRequestScalingGroupTags, 0)
+	tagsMap, ok := d.Get("tags").(map[string]interface{})
+	if ok {
+		for key, val := range tagsMap {
+			if val != nil {
+				if v, ok := val.(string); ok {
+					tags = append(tags, &roacs.CreateClusterNodePoolRequestScalingGroupTags{
+						Key:   tea.String(key),
+						Value: tea.String(v),
+					})
+				}
+			}
+		}
+	}
+	return tags, nil
+}
+
 func ConvertCsTags(d *schema.ResourceData) ([]cs.Tag, error) {
 	tags := make([]cs.Tag, 0)
 	tagsMap, ok := d.Get("tags").(map[string]interface{})
@@ -1294,11 +1517,33 @@ func ConvertCsTags(d *schema.ResourceData) ([]cs.Tag, error) {
 	return tags, nil
 }
 
+func setCreateNodePoolTags(scalingGroup *roacs.CreateClusterNodePoolRequestScalingGroup, d *schema.ResourceData) {
+	if tags, err := convertRoaCsTags(d); err == nil {
+		scalingGroup.Tags = tags
+	}
+}
+
 func setNodePoolTags(scalingGroup *cs.ScalingGroup, d *schema.ResourceData) error {
 	if tags, err := ConvertCsTags(d); err == nil {
 		scalingGroup.Tags = tags
 	}
 	return nil
+}
+
+func setNodePoolLables(d *schema.ResourceData) []*roacs.Tag {
+	labels := make([]*roacs.Tag, 0)
+	if v, ok := d.GetOk("labels"); ok && len(v.([]interface{})) > 0 {
+		vl := v.([]interface{})
+		for _, i := range vl {
+			if m, ok := i.(map[string]interface{}); ok {
+				labels = append(labels, &roacs.Tag{
+					Key:   tea.TransInterfaceToString(m["key"]),
+					Value: tea.TransInterfaceToString(m["value"]),
+				})
+			}
+		}
+	}
+	return labels
 }
 
 func setNodePoolLabels(config *cs.KubernetesConfig, d *schema.ResourceData) error {
@@ -1316,6 +1561,27 @@ func setNodePoolLabels(config *cs.KubernetesConfig, d *schema.ResourceData) erro
 	}
 	config.Labels = labels
 
+	return nil
+}
+
+func setCreateNodePoolDataDisks(d *schema.ResourceData) []*roacs.DataDisk {
+	if dds, ok := d.GetOk("data_disks"); ok {
+		disks := dds.([]interface{})
+		createDataDisks := make([]*roacs.DataDisk, 0, len(disks))
+		for _, e := range disks {
+			pack := e.(map[string]interface{})
+			dataDisk := &roacs.DataDisk{
+				Size:                 tea.Int64(int64(pack["size"].(int))),
+				Category:             tea.TransInterfaceToString(pack["category"]),
+				Encrypted:            tea.TransInterfaceToString(pack["encrypted"]),
+				AutoSnapshotPolicyId: tea.TransInterfaceToString(pack["auto_snapshot_policy_id"]),
+				KmsKeyId:             tea.TransInterfaceToString(pack["kms_key_id"]),
+				PerformanceLevel:     tea.TransInterfaceToString(pack["performance_level"]),
+			}
+			createDataDisks = append(createDataDisks, dataDisk)
+		}
+		return createDataDisks
+	}
 	return nil
 }
 
@@ -1343,6 +1609,23 @@ func setNodePoolDataDisks(scalingGroup *cs.ScalingGroup, d *schema.ResourceData)
 	return nil
 }
 
+func setCreateNodePoolTaints(d *schema.ResourceData) []*roacs.Taint {
+	taints := make([]*roacs.Taint, 0)
+	if v, ok := d.GetOk("taints"); ok && len(v.([]interface{})) > 0 {
+		vl := v.([]interface{})
+		for _, i := range vl {
+			if m, ok := i.(map[string]interface{}); ok {
+				taints = append(taints, &roacs.Taint{
+					Key:    tea.TransInterfaceToString(m["key"]),
+					Value:  tea.TransInterfaceToString(m["value"]),
+					Effect: tea.TransInterfaceToString(m["effect"]),
+				})
+			}
+		}
+	}
+	return taints
+}
+
 func setNodePoolTaints(config *cs.KubernetesConfig, d *schema.ResourceData) error {
 	taints := make([]cs.Taint, 0)
 	if v, ok := d.GetOk("taints"); ok && len(v.([]interface{})) > 0 {
@@ -1361,6 +1644,37 @@ func setNodePoolTaints(config *cs.KubernetesConfig, d *schema.ResourceData) erro
 	config.Taints = taints
 
 	return nil
+}
+
+func setCreateManagementNpConfig(l []interface{}) *roacs.CreateClusterNodePoolRequestManagement {
+	config := &roacs.CreateClusterNodePoolRequestManagement{
+		UpgradeConfig: &roacs.CreateClusterNodePoolRequestManagementUpgradeConfig{},
+	}
+	if len(l) == 0 || l[0] == nil {
+		config.Enable = tea.Bool(false)
+		return config
+	}
+
+	m := l[0].(map[string]interface{})
+	// Once "management" is set, we think of it as creating a managed node pool
+	config.Enable = tea.Bool(true)
+
+	if v, ok := m["auto_repair"].(bool); ok {
+		config.AutoRepair = tea.Bool(v)
+	}
+	if v, ok := m["auto_upgrade"].(bool); ok {
+		config.UpgradeConfig.AutoUpgrade = tea.Bool(v)
+	}
+	if v, ok := m["surge"].(int); ok {
+		config.UpgradeConfig.Surge = tea.Int64(int64(v))
+	}
+	if v, ok := m["surge_percentage"].(int); ok {
+		config.UpgradeConfig.SurgePercentage = tea.Int64(int64(v))
+	}
+	if v, ok := m["max_unavailable"].(int); ok {
+		config.UpgradeConfig.MaxUnavailable = tea.Int64(int64(v))
+	}
+	return config
 }
 
 func setManagedNodepoolConfig(l []interface{}) (config cs.Management) {
@@ -1393,6 +1707,38 @@ func setManagedNodepoolConfig(l []interface{}) (config cs.Management) {
 	return config
 }
 
+func setCreateAutoScalingConfig(l []interface{}) *roacs.CreateClusterNodePoolRequestAutoScaling {
+	config := &roacs.CreateClusterNodePoolRequestAutoScaling{}
+	if len(l) == 0 || l[0] == nil {
+		config.Enable = tea.Bool(false)
+		return config
+	}
+
+	m := l[0].(map[string]interface{})
+
+	// Once "scaling_config" is set, we think of it as creating a auto scaling node pool
+	config.Enable = tea.Bool(true)
+	if v, ok := m["min_size"].(int); ok {
+		config.MinInstances = tea.Int64(int64(v))
+	}
+	if v, ok := m["max_size"].(int); ok {
+		config.MaxInstances = tea.Int64(int64(v))
+	}
+	if v, ok := m["type"].(string); ok {
+		config.Type = tea.String(v)
+	}
+	if v, ok := m["is_bond_eip"].(bool); ok {
+		config.IsBondEip = tea.Bool(v)
+	}
+	if v, ok := m["eip_internet_charge_type"].(string); ok {
+		config.EipInternetChargeType = tea.String(v)
+	}
+	if v, ok := m["eip_bandwidth"].(int); ok {
+		config.EipBandwidth = tea.Int64(int64(v))
+	}
+	return config
+}
+
 func setAutoScalingConfig(l []interface{}) (config cs.AutoScaling) {
 	if len(l) == 0 || l[0] == nil {
 		config.Enable = tea.Bool(false)
@@ -1421,6 +1767,22 @@ func setAutoScalingConfig(l []interface{}) (config cs.AutoScaling) {
 	}
 	if v, ok := m["eip_bandwidth"].(int); ok {
 		config.EipBandWidth = tea.Int64(int64(v))
+	}
+	return config
+}
+
+func setCreateSpotPriceLimit(l []interface{}) []*roacs.CreateClusterNodePoolRequestScalingGroupSpotPriceLimit {
+	config := make([]*roacs.CreateClusterNodePoolRequestScalingGroupSpotPriceLimit, 0)
+	if len(l) == 0 || l[0] == nil {
+		return config
+	}
+	for _, v := range l {
+		if m, ok := v.(map[string]interface{}); ok {
+			config = append(config, &roacs.CreateClusterNodePoolRequestScalingGroupSpotPriceLimit{
+				InstanceType: tea.TransInterfaceToString(m["instance_type"]),
+				PriceLimit:   tea.TransInterfaceToString(m["price_limit"]),
+			})
+		}
 	}
 	return config
 }
@@ -1705,10 +2067,14 @@ func modifyNodePoolKubeletConfig(d *schema.ResourceData, meta interface{}) error
 	request := &roacs.ModifyClusterNodePoolRequest{
 		NodeConfig: &roacs.ModifyClusterNodePoolRequestNodeConfig{
 			KubeletConfiguration: &roacs.ModifyClusterNodePoolRequestNodeConfigKubeletConfiguration{},
+			RolloutPolicy:        &roacs.ModifyClusterNodePoolRequestNodeConfigRolloutPolicy{},
 		},
 	}
-	if err = setKubeletConfigParams(d.Get("kubelet_configuration").([]interface{}), request); err != nil {
+	if err = setModifyKubeletConfigParams(d.Get("kubelet_configuration").([]interface{}), request); err != nil {
 		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "ParseKubeletConfigParams", ProviderERROR)
+	}
+	if err = setModifyRolloutPolicy(d.Get("rollout_policy").([]interface{}), request); err != nil {
+		return WrapErrorf(err, DefaultErrorMsg, d.Id(), "ParseRolloutPolicy", ProviderERROR)
 	}
 
 	response, err := client.ModifyClusterNodePool(tea.String(clusterId), tea.String(nodepoolId), request)
@@ -1728,8 +2094,86 @@ func modifyNodePoolKubeletConfig(d *schema.ResourceData, meta interface{}) error
 	return nil
 }
 
-func setKubeletConfigParams(l []interface{}, request *roacs.ModifyClusterNodePoolRequest) error {
-	if len(l) == 0 || l[0] == nil {
+func setCreateKubeletConfigParams(l []interface{}) (*roacs.CreateClusterNodePoolRequestNodeConfig, error) {
+	if len(l) <= 0 || l[0] == nil {
+		return nil, nil
+	}
+
+	var (
+		intVal  int64
+		boolVal bool
+		err     error
+	)
+	m := l[0].(map[string]interface{})
+	config := &roacs.CreateClusterNodePoolRequestNodeConfig{
+		KubeletConfiguration: &roacs.CreateClusterNodePoolRequestNodeConfigKubeletConfiguration{},
+	}
+	if v, ok := m["registry_pull_qps"]; ok && reflect.ValueOf(v).String() != "" {
+		if intVal, err = strconv.ParseInt(v.(string), 10, 64); err != nil {
+			return nil, WrapError(fmt.Errorf("failed to parse 'registry_pull_qps' due to %v", err))
+		}
+		config.KubeletConfiguration.RegistryPullQPS = tea.Int64(intVal)
+	}
+	if v, ok := m["registry_burst"]; ok && reflect.ValueOf(v).String() != "" {
+		if intVal, err = strconv.ParseInt(v.(string), 10, 64); err != nil {
+			return nil, WrapError(fmt.Errorf("failed to parse 'registry_burst' due to %v", err))
+		}
+		config.KubeletConfiguration.RegistryBurst = tea.Int64(intVal)
+	}
+	if v, ok := m["event_record_qps"]; ok && reflect.ValueOf(v).String() != "" {
+		if intVal, err = strconv.ParseInt(v.(string), 10, 64); err != nil {
+			return nil, WrapError(fmt.Errorf("failed to parse 'event_record_qps' due to %v", err))
+		}
+		config.KubeletConfiguration.EventRecordQPS = tea.Int64(intVal)
+	}
+	if v, ok := m["event_burst"]; ok && reflect.ValueOf(v).String() != "" {
+		if intVal, err = strconv.ParseInt(v.(string), 10, 64); err != nil {
+			return nil, WrapError(fmt.Errorf("failed to parse 'event_burst' due to %v", err))
+		}
+		config.KubeletConfiguration.EventBurst = tea.Int64(intVal)
+	}
+	if v, ok := m["kube_api_qps"]; ok && reflect.ValueOf(v).String() != "" {
+		if intVal, err = strconv.ParseInt(v.(string), 10, 64); err != nil {
+			return nil, WrapError(fmt.Errorf("failed to parse 'kube_api_qps' due to %v", err))
+		}
+		config.KubeletConfiguration.KubeAPIQPS = tea.Int64(intVal)
+	}
+	if v, ok := m["kube_api_burst"]; ok && reflect.ValueOf(v).String() != "" {
+		if intVal, err = strconv.ParseInt(v.(string), 10, 64); err != nil {
+			return nil, WrapError(fmt.Errorf("failed to parse 'kube_api_burst' due to %v", err))
+		}
+		config.KubeletConfiguration.KubeAPIBurst = tea.Int64(intVal)
+	}
+	if v, ok := m["serialize_image_pulls"]; ok && reflect.ValueOf(v).String() != "" {
+		if boolVal, err = strconv.ParseBool(v.(string)); err != nil {
+			return nil, WrapError(fmt.Errorf("failed to parse 'serialize_image_pulls' due to %v", err))
+		}
+		config.KubeletConfiguration.SerializeImagePulls = tea.Bool(boolVal)
+	}
+	if v, ok := m["cpu_manager_policy"]; ok && reflect.ValueOf(v).String() != "" {
+		config.KubeletConfiguration.CpuManagerPolicy = tea.String(v.(string))
+	}
+	if v, ok := m["eviction_hard"]; ok && reflect.TypeOf(v).Kind() == reflect.Map {
+		config.KubeletConfiguration.EvictionHard = v.(map[string]interface{})
+	}
+	if v, ok := m["eviction_soft"]; ok && reflect.TypeOf(v).Kind() == reflect.Map {
+		config.KubeletConfiguration.EvictionSoft = v.(map[string]interface{})
+	}
+	if v, ok := m["eviction_soft_grace_period"]; ok && reflect.TypeOf(v).Kind() == reflect.Map {
+		config.KubeletConfiguration.EvictionSoftGracePeriod = v.(map[string]interface{})
+	}
+	if v, ok := m["system_reserved"]; ok && reflect.TypeOf(v).Kind() == reflect.Map {
+		config.KubeletConfiguration.SystemReserved = v.(map[string]interface{})
+	}
+	if v, ok := m["kube_reserved"]; ok && reflect.TypeOf(v).Kind() == reflect.Map {
+		config.KubeletConfiguration.KubeReserved = v.(map[string]interface{})
+	}
+
+	return config, nil
+}
+
+func setModifyKubeletConfigParams(l []interface{}, request *roacs.ModifyClusterNodePoolRequest) error {
+	if len(l) <= 0 || l[0] == nil {
 		return nil
 	}
 
@@ -1800,6 +2244,25 @@ func setKubeletConfigParams(l []interface{}, request *roacs.ModifyClusterNodePoo
 	}
 	if v, ok := m["kube_reserved"]; ok && reflect.TypeOf(v).Kind() == reflect.Map {
 		request.NodeConfig.KubeletConfiguration.KubeReserved = v.(map[string]interface{})
+	}
+	return nil
+}
+
+func setModifyRolloutPolicy(l []interface{}, request *roacs.ModifyClusterNodePoolRequest) error {
+	if len(l) <= 0 || l[0] == nil {
+		return nil
+	}
+	var (
+		intVal int64
+		err    error
+	)
+	m := l[0].(map[string]interface{})
+
+	if v, ok := m["max_unavailable"]; ok && reflect.ValueOf(v).String() != "" {
+		if intVal, err = strconv.ParseInt(v.(string), 10, 64); err != nil {
+			return WrapError(fmt.Errorf("failed to parse 'max_unavailable' due to %v", err))
+		}
+		request.NodeConfig.RolloutPolicy.MaxUnavailable = tea.Int64(intVal)
 	}
 	return nil
 }

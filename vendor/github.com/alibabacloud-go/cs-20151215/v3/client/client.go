@@ -45,6 +45,7 @@ type DataDisk struct {
 	AutoSnapshotPolicyId *string `json:"auto_snapshot_policy_id,omitempty" xml:"auto_snapshot_policy_id,omitempty"`
 	Category             *string `json:"category,omitempty" xml:"category,omitempty"`
 	Encrypted            *string `json:"encrypted,omitempty" xml:"encrypted,omitempty"`
+	KmsKeyId             *string `json:"kms_key_id,omitempty" xml:"kms_key_id,omitempty"`
 	PerformanceLevel     *string `json:"performance_level,omitempty" xml:"performance_level,omitempty"`
 	Size                 *int64  `json:"size,omitempty" xml:"size,omitempty"`
 }
@@ -69,6 +70,11 @@ func (s *DataDisk) SetCategory(v string) *DataDisk {
 
 func (s *DataDisk) SetEncrypted(v string) *DataDisk {
 	s.Encrypted = &v
+	return s
+}
+
+func (s *DataDisk) SetKmsKeyId(v string) *DataDisk {
+	s.KmsKeyId = &v
 	return s
 }
 
@@ -1181,6 +1187,7 @@ type CreateClusterNodePoolRequest struct {
 	KubernetesConfig   *CreateClusterNodePoolRequestKubernetesConfig   `json:"kubernetes_config,omitempty" xml:"kubernetes_config,omitempty" type:"Struct"`
 	Management         *CreateClusterNodePoolRequestManagement         `json:"management,omitempty" xml:"management,omitempty" type:"Struct"`
 	MaxNodes           *int64                                          `json:"max_nodes,omitempty" xml:"max_nodes,omitempty"`
+	NodeConfig         *CreateClusterNodePoolRequestNodeConfig         `json:"node_config,omitempty" xml:"node_config,omitempty" type:"Struct"`
 	NodepoolInfo       *CreateClusterNodePoolRequestNodepoolInfo       `json:"nodepool_info,omitempty" xml:"nodepool_info,omitempty" type:"Struct"`
 	ScalingGroup       *CreateClusterNodePoolRequestScalingGroup       `json:"scaling_group,omitempty" xml:"scaling_group,omitempty" type:"Struct"`
 	TeeConfig          *CreateClusterNodePoolRequestTeeConfig          `json:"tee_config,omitempty" xml:"tee_config,omitempty" type:"Struct"`
@@ -1226,6 +1233,11 @@ func (s *CreateClusterNodePoolRequest) SetManagement(v *CreateClusterNodePoolReq
 
 func (s *CreateClusterNodePoolRequest) SetMaxNodes(v int64) *CreateClusterNodePoolRequest {
 	s.MaxNodes = &v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequest) SetNodeConfig(v *CreateClusterNodePoolRequestNodeConfig) *CreateClusterNodePoolRequest {
+	s.NodeConfig = v
 	return s
 }
 
@@ -1346,6 +1358,7 @@ type CreateClusterNodePoolRequestKubernetesConfig struct {
 	Runtime        *string  `json:"runtime,omitempty" xml:"runtime,omitempty"`
 	RuntimeVersion *string  `json:"runtime_version,omitempty" xml:"runtime_version,omitempty"`
 	Taints         []*Taint `json:"taints,omitempty" xml:"taints,omitempty" type:"Repeated"`
+	Unschedulable  *bool    `json:"unschedulable,omitempty" xml:"unschedulable,omitempty"`
 	UserData       *string  `json:"user_data,omitempty" xml:"user_data,omitempty"`
 }
 
@@ -1389,6 +1402,11 @@ func (s *CreateClusterNodePoolRequestKubernetesConfig) SetRuntimeVersion(v strin
 
 func (s *CreateClusterNodePoolRequestKubernetesConfig) SetTaints(v []*Taint) *CreateClusterNodePoolRequestKubernetesConfig {
 	s.Taints = v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestKubernetesConfig) SetUnschedulable(v bool) *CreateClusterNodePoolRequestKubernetesConfig {
+	s.Unschedulable = &v
 	return s
 }
 
@@ -1461,6 +1479,112 @@ func (s *CreateClusterNodePoolRequestManagementUpgradeConfig) SetSurgePercentage
 	return s
 }
 
+type CreateClusterNodePoolRequestNodeConfig struct {
+	KubeletConfiguration *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration `json:"kubelet_configuration,omitempty" xml:"kubelet_configuration,omitempty" type:"Struct"`
+}
+
+func (s CreateClusterNodePoolRequestNodeConfig) String() string {
+	return tea.Prettify(s)
+}
+
+func (s CreateClusterNodePoolRequestNodeConfig) GoString() string {
+	return s.String()
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfig) SetKubeletConfiguration(v *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) *CreateClusterNodePoolRequestNodeConfig {
+	s.KubeletConfiguration = v
+	return s
+}
+
+type CreateClusterNodePoolRequestNodeConfigKubeletConfiguration struct {
+	CpuManagerPolicy        *string                `json:"cpuManagerPolicy,omitempty" xml:"cpuManagerPolicy,omitempty"`
+	EventBurst              *int64                 `json:"eventBurst,omitempty" xml:"eventBurst,omitempty"`
+	EventRecordQPS          *int64                 `json:"eventRecordQPS,omitempty" xml:"eventRecordQPS,omitempty"`
+	EvictionHard            map[string]interface{} `json:"evictionHard,omitempty" xml:"evictionHard,omitempty"`
+	EvictionSoft            map[string]interface{} `json:"evictionSoft,omitempty" xml:"evictionSoft,omitempty"`
+	EvictionSoftGracePeriod map[string]interface{} `json:"evictionSoftGracePeriod,omitempty" xml:"evictionSoftGracePeriod,omitempty"`
+	KubeAPIBurst            *int64                 `json:"kubeAPIBurst,omitempty" xml:"kubeAPIBurst,omitempty"`
+	KubeAPIQPS              *int64                 `json:"kubeAPIQPS,omitempty" xml:"kubeAPIQPS,omitempty"`
+	KubeReserved            map[string]interface{} `json:"kubeReserved,omitempty" xml:"kubeReserved,omitempty"`
+	RegistryBurst           *int64                 `json:"registryBurst,omitempty" xml:"registryBurst,omitempty"`
+	RegistryPullQPS         *int64                 `json:"registryPullQPS,omitempty" xml:"registryPullQPS,omitempty"`
+	SerializeImagePulls     *bool                  `json:"serializeImagePulls,omitempty" xml:"serializeImagePulls,omitempty"`
+	SystemReserved          map[string]interface{} `json:"systemReserved,omitempty" xml:"systemReserved,omitempty"`
+}
+
+func (s CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) String() string {
+	return tea.Prettify(s)
+}
+
+func (s CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) GoString() string {
+	return s.String()
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) SetCpuManagerPolicy(v string) *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration {
+	s.CpuManagerPolicy = &v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) SetEventBurst(v int64) *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration {
+	s.EventBurst = &v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) SetEventRecordQPS(v int64) *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration {
+	s.EventRecordQPS = &v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) SetEvictionHard(v map[string]interface{}) *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration {
+	s.EvictionHard = v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) SetEvictionSoft(v map[string]interface{}) *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration {
+	s.EvictionSoft = v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) SetEvictionSoftGracePeriod(v map[string]interface{}) *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration {
+	s.EvictionSoftGracePeriod = v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) SetKubeAPIBurst(v int64) *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration {
+	s.KubeAPIBurst = &v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) SetKubeAPIQPS(v int64) *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration {
+	s.KubeAPIQPS = &v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) SetKubeReserved(v map[string]interface{}) *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration {
+	s.KubeReserved = v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) SetRegistryBurst(v int64) *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration {
+	s.RegistryBurst = &v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) SetRegistryPullQPS(v int64) *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration {
+	s.RegistryPullQPS = &v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) SetSerializeImagePulls(v bool) *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration {
+	s.SerializeImagePulls = &v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration) SetSystemReserved(v map[string]interface{}) *CreateClusterNodePoolRequestNodeConfigKubeletConfiguration {
+	s.SystemReserved = v
+	return s
+}
+
 type CreateClusterNodePoolRequestNodepoolInfo struct {
 	Name            *string `json:"name,omitempty" xml:"name,omitempty"`
 	ResourceGroupId *string `json:"resource_group_id,omitempty" xml:"resource_group_id,omitempty"`
@@ -1493,6 +1617,7 @@ func (s *CreateClusterNodePoolRequestNodepoolInfo) SetType(v string) *CreateClus
 type CreateClusterNodePoolRequestScalingGroup struct {
 	AutoRenew                           *bool                                                     `json:"auto_renew,omitempty" xml:"auto_renew,omitempty"`
 	AutoRenewPeriod                     *int64                                                    `json:"auto_renew_period,omitempty" xml:"auto_renew_period,omitempty"`
+	CisEnabled                          *bool                                                     `json:"cis_enabled,omitempty" xml:"cis_enabled,omitempty"`
 	CompensateWithOnDemand              *bool                                                     `json:"compensate_with_on_demand,omitempty" xml:"compensate_with_on_demand,omitempty"`
 	DataDisks                           []*DataDisk                                               `json:"data_disks,omitempty" xml:"data_disks,omitempty" type:"Repeated"`
 	DeploymentsetId                     *string                                                   `json:"deploymentset_id,omitempty" xml:"deploymentset_id,omitempty"`
@@ -1515,15 +1640,20 @@ type CreateClusterNodePoolRequestScalingGroup struct {
 	ScalingPolicy                       *string                                                   `json:"scaling_policy,omitempty" xml:"scaling_policy,omitempty"`
 	SecurityGroupId                     *string                                                   `json:"security_group_id,omitempty" xml:"security_group_id,omitempty"`
 	SecurityGroupIds                    []*string                                                 `json:"security_group_ids,omitempty" xml:"security_group_ids,omitempty" type:"Repeated"`
+	SocEnabled                          *bool                                                     `json:"soc_enabled,omitempty" xml:"soc_enabled,omitempty"`
 	SpotInstancePools                   *int64                                                    `json:"spot_instance_pools,omitempty" xml:"spot_instance_pools,omitempty"`
 	SpotInstanceRemedy                  *bool                                                     `json:"spot_instance_remedy,omitempty" xml:"spot_instance_remedy,omitempty"`
 	SpotPriceLimit                      []*CreateClusterNodePoolRequestScalingGroupSpotPriceLimit `json:"spot_price_limit,omitempty" xml:"spot_price_limit,omitempty" type:"Repeated"`
 	SpotStrategy                        *string                                                   `json:"spot_strategy,omitempty" xml:"spot_strategy,omitempty"`
 	SystemDiskCategory                  *string                                                   `json:"system_disk_category,omitempty" xml:"system_disk_category,omitempty"`
+	SystemDiskEncryptAlgorithm          *string                                                   `json:"system_disk_encrypt_algorithm,omitempty" xml:"system_disk_encrypt_algorithm,omitempty"`
+	SystemDiskEncrypted                 *bool                                                     `json:"system_disk_encrypted,omitempty" xml:"system_disk_encrypted,omitempty"`
+	SystemDiskKmsKeyId                  *string                                                   `json:"system_disk_kms_key_id,omitempty" xml:"system_disk_kms_key_id,omitempty"`
 	SystemDiskPerformanceLevel          *string                                                   `json:"system_disk_performance_level,omitempty" xml:"system_disk_performance_level,omitempty"`
 	SystemDiskSize                      *int64                                                    `json:"system_disk_size,omitempty" xml:"system_disk_size,omitempty"`
 	Tags                                []*CreateClusterNodePoolRequestScalingGroupTags           `json:"tags,omitempty" xml:"tags,omitempty" type:"Repeated"`
 	VswitchIds                          []*string                                                 `json:"vswitch_ids,omitempty" xml:"vswitch_ids,omitempty" type:"Repeated"`
+	WorkerSystemDiskSnapshotPolicyId    *string                                                   `json:"worker_system_disk_snapshot_policy_id,omitempty" xml:"worker_system_disk_snapshot_policy_id,omitempty"`
 }
 
 func (s CreateClusterNodePoolRequestScalingGroup) String() string {
@@ -1541,6 +1671,11 @@ func (s *CreateClusterNodePoolRequestScalingGroup) SetAutoRenew(v bool) *CreateC
 
 func (s *CreateClusterNodePoolRequestScalingGroup) SetAutoRenewPeriod(v int64) *CreateClusterNodePoolRequestScalingGroup {
 	s.AutoRenewPeriod = &v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestScalingGroup) SetCisEnabled(v bool) *CreateClusterNodePoolRequestScalingGroup {
+	s.CisEnabled = &v
 	return s
 }
 
@@ -1654,6 +1789,11 @@ func (s *CreateClusterNodePoolRequestScalingGroup) SetSecurityGroupIds(v []*stri
 	return s
 }
 
+func (s *CreateClusterNodePoolRequestScalingGroup) SetSocEnabled(v bool) *CreateClusterNodePoolRequestScalingGroup {
+	s.SocEnabled = &v
+	return s
+}
+
 func (s *CreateClusterNodePoolRequestScalingGroup) SetSpotInstancePools(v int64) *CreateClusterNodePoolRequestScalingGroup {
 	s.SpotInstancePools = &v
 	return s
@@ -1679,6 +1819,21 @@ func (s *CreateClusterNodePoolRequestScalingGroup) SetSystemDiskCategory(v strin
 	return s
 }
 
+func (s *CreateClusterNodePoolRequestScalingGroup) SetSystemDiskEncryptAlgorithm(v string) *CreateClusterNodePoolRequestScalingGroup {
+	s.SystemDiskEncryptAlgorithm = &v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestScalingGroup) SetSystemDiskEncrypted(v bool) *CreateClusterNodePoolRequestScalingGroup {
+	s.SystemDiskEncrypted = &v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestScalingGroup) SetSystemDiskKmsKeyId(v string) *CreateClusterNodePoolRequestScalingGroup {
+	s.SystemDiskKmsKeyId = &v
+	return s
+}
+
 func (s *CreateClusterNodePoolRequestScalingGroup) SetSystemDiskPerformanceLevel(v string) *CreateClusterNodePoolRequestScalingGroup {
 	s.SystemDiskPerformanceLevel = &v
 	return s
@@ -1696,6 +1851,11 @@ func (s *CreateClusterNodePoolRequestScalingGroup) SetTags(v []*CreateClusterNod
 
 func (s *CreateClusterNodePoolRequestScalingGroup) SetVswitchIds(v []*string) *CreateClusterNodePoolRequestScalingGroup {
 	s.VswitchIds = v
+	return s
+}
+
+func (s *CreateClusterNodePoolRequestScalingGroup) SetWorkerSystemDiskSnapshotPolicyId(v string) *CreateClusterNodePoolRequestScalingGroup {
+	s.WorkerSystemDiskSnapshotPolicyId = &v
 	return s
 }
 
@@ -3112,7 +3272,9 @@ func (s *DescribeClusterAddonsVersionResponse) SetBody(v map[string]interface{})
 
 type DescribeClusterAttachScriptsRequest struct {
 	Arch             *string   `json:"arch,omitempty" xml:"arch,omitempty"`
+	Expired          *int64    `json:"expired,omitempty" xml:"expired,omitempty"`
 	FormatDisk       *bool     `json:"format_disk,omitempty" xml:"format_disk,omitempty"`
+	IsPermanently    *bool     `json:"is_permanently,omitempty" xml:"is_permanently,omitempty"`
 	KeepInstanceName *bool     `json:"keep_instance_name,omitempty" xml:"keep_instance_name,omitempty"`
 	NodepoolId       *string   `json:"nodepool_id,omitempty" xml:"nodepool_id,omitempty"`
 	Options          *string   `json:"options,omitempty" xml:"options,omitempty"`
@@ -3132,8 +3294,18 @@ func (s *DescribeClusterAttachScriptsRequest) SetArch(v string) *DescribeCluster
 	return s
 }
 
+func (s *DescribeClusterAttachScriptsRequest) SetExpired(v int64) *DescribeClusterAttachScriptsRequest {
+	s.Expired = &v
+	return s
+}
+
 func (s *DescribeClusterAttachScriptsRequest) SetFormatDisk(v bool) *DescribeClusterAttachScriptsRequest {
 	s.FormatDisk = &v
+	return s
+}
+
+func (s *DescribeClusterAttachScriptsRequest) SetIsPermanently(v bool) *DescribeClusterAttachScriptsRequest {
+	s.IsPermanently = &v
 	return s
 }
 
@@ -4040,6 +4212,9 @@ type DescribeClusterNodePoolDetailResponseBodyScalingGroup struct {
 	SpotPriceLimit                      []*DescribeClusterNodePoolDetailResponseBodyScalingGroupSpotPriceLimit `json:"spot_price_limit,omitempty" xml:"spot_price_limit,omitempty" type:"Repeated"`
 	SpotStrategy                        *string                                                                `json:"spot_strategy,omitempty" xml:"spot_strategy,omitempty"`
 	SystemDiskCategory                  *string                                                                `json:"system_disk_category,omitempty" xml:"system_disk_category,omitempty"`
+	SystemDiskEncryptAlgorithm          *string                                                                `json:"system_disk_encrypt_algorithm,omitempty" xml:"system_disk_encrypt_algorithm,omitempty"`
+	SystemDiskEncrypted                 *bool                                                                  `json:"system_disk_encrypted,omitempty" xml:"system_disk_encrypted,omitempty"`
+	SystemDiskKmsKeyId                  *string                                                                `json:"system_disk_kms_key_id,omitempty" xml:"system_disk_kms_key_id,omitempty"`
 	SystemDiskPerformanceLevel          *string                                                                `json:"system_disk_performance_level,omitempty" xml:"system_disk_performance_level,omitempty"`
 	SystemDiskSize                      *int64                                                                 `json:"system_disk_size,omitempty" xml:"system_disk_size,omitempty"`
 	Tags                                []*Tag                                                                 `json:"tags,omitempty" xml:"tags,omitempty" type:"Repeated"`
@@ -4201,6 +4376,21 @@ func (s *DescribeClusterNodePoolDetailResponseBodyScalingGroup) SetSpotStrategy(
 
 func (s *DescribeClusterNodePoolDetailResponseBodyScalingGroup) SetSystemDiskCategory(v string) *DescribeClusterNodePoolDetailResponseBodyScalingGroup {
 	s.SystemDiskCategory = &v
+	return s
+}
+
+func (s *DescribeClusterNodePoolDetailResponseBodyScalingGroup) SetSystemDiskEncryptAlgorithm(v string) *DescribeClusterNodePoolDetailResponseBodyScalingGroup {
+	s.SystemDiskEncryptAlgorithm = &v
+	return s
+}
+
+func (s *DescribeClusterNodePoolDetailResponseBodyScalingGroup) SetSystemDiskEncrypted(v bool) *DescribeClusterNodePoolDetailResponseBodyScalingGroup {
+	s.SystemDiskEncrypted = &v
+	return s
+}
+
+func (s *DescribeClusterNodePoolDetailResponseBodyScalingGroup) SetSystemDiskKmsKeyId(v string) *DescribeClusterNodePoolDetailResponseBodyScalingGroup {
+	s.SystemDiskKmsKeyId = &v
 	return s
 }
 
@@ -4747,6 +4937,9 @@ type DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup struct {
 	SpotPriceLimit                      []*DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroupSpotPriceLimit `json:"spot_price_limit,omitempty" xml:"spot_price_limit,omitempty" type:"Repeated"`
 	SpotStrategy                        *string                                                                    `json:"spot_strategy,omitempty" xml:"spot_strategy,omitempty"`
 	SystemDiskCategory                  *string                                                                    `json:"system_disk_category,omitempty" xml:"system_disk_category,omitempty"`
+	SystemDiskEncryptAlgorithm          *string                                                                    `json:"system_disk_encrypt_algorithm,omitempty" xml:"system_disk_encrypt_algorithm,omitempty"`
+	SystemDiskEncrypted                 *bool                                                                      `json:"system_disk_encrypted,omitempty" xml:"system_disk_encrypted,omitempty"`
+	SystemDiskKmsKeyId                  *string                                                                    `json:"system_disk_kms_key_id,omitempty" xml:"system_disk_kms_key_id,omitempty"`
 	SystemDiskPerformanceLevel          *string                                                                    `json:"system_disk_performance_level,omitempty" xml:"system_disk_performance_level,omitempty"`
 	SystemDiskSize                      *int64                                                                     `json:"system_disk_size,omitempty" xml:"system_disk_size,omitempty"`
 	Tags                                []*Tag                                                                     `json:"tags,omitempty" xml:"tags,omitempty" type:"Repeated"`
@@ -4908,6 +5101,21 @@ func (s *DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup) SetSpotStrat
 
 func (s *DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup) SetSystemDiskCategory(v string) *DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup {
 	s.SystemDiskCategory = &v
+	return s
+}
+
+func (s *DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup) SetSystemDiskEncryptAlgorithm(v string) *DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup {
+	s.SystemDiskEncryptAlgorithm = &v
+	return s
+}
+
+func (s *DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup) SetSystemDiskEncrypted(v bool) *DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup {
+	s.SystemDiskEncrypted = &v
+	return s
+}
+
+func (s *DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup) SetSystemDiskKmsKeyId(v string) *DescribeClusterNodePoolsResponseBodyNodepoolsScalingGroup {
+	s.SystemDiskKmsKeyId = &v
 	return s
 }
 
@@ -5391,6 +5599,163 @@ func (s *DescribeClusterResourcesResponseBody) SetState(v string) *DescribeClust
 
 func (s *DescribeClusterResourcesResponseBody) SetAutoCreate(v int64) *DescribeClusterResourcesResponseBody {
 	s.AutoCreate = &v
+	return s
+}
+
+type DescribeClusterTasksResponseBody struct {
+	PageInfo  *DescribeClusterTasksResponseBodyPageInfo `json:"page_info,omitempty" xml:"page_info,omitempty" type:"Struct"`
+	RequestId *string                                   `json:"requestId,omitempty" xml:"requestId,omitempty"`
+	Tasks     []*DescribeClusterTasksResponseBodyTasks  `json:"tasks,omitempty" xml:"tasks,omitempty" type:"Repeated"`
+}
+
+func (s DescribeClusterTasksResponseBody) String() string {
+	return tea.Prettify(s)
+}
+
+func (s DescribeClusterTasksResponseBody) GoString() string {
+	return s.String()
+}
+
+func (s *DescribeClusterTasksResponseBody) SetPageInfo(v *DescribeClusterTasksResponseBodyPageInfo) *DescribeClusterTasksResponseBody {
+	s.PageInfo = v
+	return s
+}
+
+func (s *DescribeClusterTasksResponseBody) SetRequestId(v string) *DescribeClusterTasksResponseBody {
+	s.RequestId = &v
+	return s
+}
+
+func (s *DescribeClusterTasksResponseBody) SetTasks(v []*DescribeClusterTasksResponseBodyTasks) *DescribeClusterTasksResponseBody {
+	s.Tasks = v
+	return s
+}
+
+type DescribeClusterTasksResponseBodyPageInfo struct {
+	PageNumber *int64 `json:"page_number,omitempty" xml:"page_number,omitempty"`
+	PageSize   *int64 `json:"page_size,omitempty" xml:"page_size,omitempty"`
+	TotalCount *int64 `json:"total_count,omitempty" xml:"total_count,omitempty"`
+}
+
+func (s DescribeClusterTasksResponseBodyPageInfo) String() string {
+	return tea.Prettify(s)
+}
+
+func (s DescribeClusterTasksResponseBodyPageInfo) GoString() string {
+	return s.String()
+}
+
+func (s *DescribeClusterTasksResponseBodyPageInfo) SetPageNumber(v int64) *DescribeClusterTasksResponseBodyPageInfo {
+	s.PageNumber = &v
+	return s
+}
+
+func (s *DescribeClusterTasksResponseBodyPageInfo) SetPageSize(v int64) *DescribeClusterTasksResponseBodyPageInfo {
+	s.PageSize = &v
+	return s
+}
+
+func (s *DescribeClusterTasksResponseBodyPageInfo) SetTotalCount(v int64) *DescribeClusterTasksResponseBodyPageInfo {
+	s.TotalCount = &v
+	return s
+}
+
+type DescribeClusterTasksResponseBodyTasks struct {
+	Created  *string                                     `json:"created,omitempty" xml:"created,omitempty"`
+	Error    *DescribeClusterTasksResponseBodyTasksError `json:"error,omitempty" xml:"error,omitempty" type:"Struct"`
+	State    *string                                     `json:"state,omitempty" xml:"state,omitempty"`
+	TaskId   *string                                     `json:"task_id,omitempty" xml:"task_id,omitempty"`
+	TaskType *string                                     `json:"task_type,omitempty" xml:"task_type,omitempty"`
+	Updated  *string                                     `json:"updated,omitempty" xml:"updated,omitempty"`
+}
+
+func (s DescribeClusterTasksResponseBodyTasks) String() string {
+	return tea.Prettify(s)
+}
+
+func (s DescribeClusterTasksResponseBodyTasks) GoString() string {
+	return s.String()
+}
+
+func (s *DescribeClusterTasksResponseBodyTasks) SetCreated(v string) *DescribeClusterTasksResponseBodyTasks {
+	s.Created = &v
+	return s
+}
+
+func (s *DescribeClusterTasksResponseBodyTasks) SetError(v *DescribeClusterTasksResponseBodyTasksError) *DescribeClusterTasksResponseBodyTasks {
+	s.Error = v
+	return s
+}
+
+func (s *DescribeClusterTasksResponseBodyTasks) SetState(v string) *DescribeClusterTasksResponseBodyTasks {
+	s.State = &v
+	return s
+}
+
+func (s *DescribeClusterTasksResponseBodyTasks) SetTaskId(v string) *DescribeClusterTasksResponseBodyTasks {
+	s.TaskId = &v
+	return s
+}
+
+func (s *DescribeClusterTasksResponseBodyTasks) SetTaskType(v string) *DescribeClusterTasksResponseBodyTasks {
+	s.TaskType = &v
+	return s
+}
+
+func (s *DescribeClusterTasksResponseBodyTasks) SetUpdated(v string) *DescribeClusterTasksResponseBodyTasks {
+	s.Updated = &v
+	return s
+}
+
+type DescribeClusterTasksResponseBodyTasksError struct {
+	Code    *string `json:"code,omitempty" xml:"code,omitempty"`
+	Message *string `json:"message,omitempty" xml:"message,omitempty"`
+}
+
+func (s DescribeClusterTasksResponseBodyTasksError) String() string {
+	return tea.Prettify(s)
+}
+
+func (s DescribeClusterTasksResponseBodyTasksError) GoString() string {
+	return s.String()
+}
+
+func (s *DescribeClusterTasksResponseBodyTasksError) SetCode(v string) *DescribeClusterTasksResponseBodyTasksError {
+	s.Code = &v
+	return s
+}
+
+func (s *DescribeClusterTasksResponseBodyTasksError) SetMessage(v string) *DescribeClusterTasksResponseBodyTasksError {
+	s.Message = &v
+	return s
+}
+
+type DescribeClusterTasksResponse struct {
+	Headers    map[string]*string                `json:"headers,omitempty" xml:"headers,omitempty" require:"true"`
+	StatusCode *int32                            `json:"statusCode,omitempty" xml:"statusCode,omitempty" require:"true"`
+	Body       *DescribeClusterTasksResponseBody `json:"body,omitempty" xml:"body,omitempty" require:"true"`
+}
+
+func (s DescribeClusterTasksResponse) String() string {
+	return tea.Prettify(s)
+}
+
+func (s DescribeClusterTasksResponse) GoString() string {
+	return s.String()
+}
+
+func (s *DescribeClusterTasksResponse) SetHeaders(v map[string]*string) *DescribeClusterTasksResponse {
+	s.Headers = v
+	return s
+}
+
+func (s *DescribeClusterTasksResponse) SetStatusCode(v int32) *DescribeClusterTasksResponse {
+	s.StatusCode = &v
+	return s
+}
+
+func (s *DescribeClusterTasksResponse) SetBody(v *DescribeClusterTasksResponseBody) *DescribeClusterTasksResponse {
+	s.Body = v
 	return s
 }
 
@@ -6834,6 +7199,7 @@ type DescribeKubernetesVersionMetadataRequest struct {
 	Profile           *string `json:"Profile,omitempty" xml:"Profile,omitempty"`
 	Region            *string `json:"Region,omitempty" xml:"Region,omitempty"`
 	Runtime           *string `json:"runtime,omitempty" xml:"runtime,omitempty"`
+	Test              *string `json:"test,omitempty" xml:"test,omitempty"`
 }
 
 func (s DescribeKubernetesVersionMetadataRequest) String() string {
@@ -6866,6 +7232,11 @@ func (s *DescribeKubernetesVersionMetadataRequest) SetRegion(v string) *Describe
 
 func (s *DescribeKubernetesVersionMetadataRequest) SetRuntime(v string) *DescribeKubernetesVersionMetadataRequest {
 	s.Runtime = &v
+	return s
+}
+
+func (s *DescribeKubernetesVersionMetadataRequest) SetTest(v string) *DescribeKubernetesVersionMetadataRequest {
+	s.Test = &v
 	return s
 }
 
@@ -8839,8 +9210,9 @@ func (s *GetUpgradeStatusResponseBody) SetUpgradeTask(v *GetUpgradeStatusRespons
 }
 
 type GetUpgradeStatusResponseBodyUpgradeTask struct {
-	Message *string `json:"message,omitempty" xml:"message,omitempty"`
-	Status  *string `json:"status,omitempty" xml:"status,omitempty"`
+	Message       *string                                               `json:"message,omitempty" xml:"message,omitempty"`
+	Status        *string                                               `json:"status,omitempty" xml:"status,omitempty"`
+	UpgradeStatus *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus `json:"upgrade_status,omitempty" xml:"upgrade_status,omitempty" type:"Struct"`
 }
 
 func (s GetUpgradeStatusResponseBodyUpgradeTask) String() string {
@@ -8858,6 +9230,105 @@ func (s *GetUpgradeStatusResponseBodyUpgradeTask) SetMessage(v string) *GetUpgra
 
 func (s *GetUpgradeStatusResponseBodyUpgradeTask) SetStatus(v string) *GetUpgradeStatusResponseBodyUpgradeTask {
 	s.Status = &v
+	return s
+}
+
+func (s *GetUpgradeStatusResponseBodyUpgradeTask) SetUpgradeStatus(v *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus) *GetUpgradeStatusResponseBodyUpgradeTask {
+	s.UpgradeStatus = v
+	return s
+}
+
+type GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus struct {
+	Events     []*GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents `json:"events,omitempty" xml:"events,omitempty" type:"Repeated"`
+	Failed     *string                                                       `json:"failed,omitempty" xml:"failed,omitempty"`
+	IsCanceled *bool                                                         `json:"is_canceled,omitempty" xml:"is_canceled,omitempty"`
+	Phase      *string                                                       `json:"phase,omitempty" xml:"phase,omitempty"`
+	State      *string                                                       `json:"state,omitempty" xml:"state,omitempty"`
+	Succeeded  *int64                                                        `json:"succeeded,omitempty" xml:"succeeded,omitempty"`
+	Total      *int64                                                        `json:"total,omitempty" xml:"total,omitempty"`
+}
+
+func (s GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus) String() string {
+	return tea.Prettify(s)
+}
+
+func (s GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus) GoString() string {
+	return s.String()
+}
+
+func (s *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus) SetEvents(v []*GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents) *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus {
+	s.Events = v
+	return s
+}
+
+func (s *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus) SetFailed(v string) *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus {
+	s.Failed = &v
+	return s
+}
+
+func (s *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus) SetIsCanceled(v bool) *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus {
+	s.IsCanceled = &v
+	return s
+}
+
+func (s *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus) SetPhase(v string) *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus {
+	s.Phase = &v
+	return s
+}
+
+func (s *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus) SetState(v string) *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus {
+	s.State = &v
+	return s
+}
+
+func (s *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus) SetSucceeded(v int64) *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus {
+	s.Succeeded = &v
+	return s
+}
+
+func (s *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus) SetTotal(v int64) *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatus {
+	s.Total = &v
+	return s
+}
+
+type GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents struct {
+	Message   *string `json:"Message,omitempty" xml:"Message,omitempty"`
+	Reason    *string `json:"Reason,omitempty" xml:"Reason,omitempty"`
+	Source    *string `json:"Source,omitempty" xml:"Source,omitempty"`
+	Timestamp *string `json:"Timestamp,omitempty" xml:"Timestamp,omitempty"`
+	Type      *string `json:"Type,omitempty" xml:"Type,omitempty"`
+}
+
+func (s GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents) String() string {
+	return tea.Prettify(s)
+}
+
+func (s GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents) GoString() string {
+	return s.String()
+}
+
+func (s *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents) SetMessage(v string) *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents {
+	s.Message = &v
+	return s
+}
+
+func (s *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents) SetReason(v string) *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents {
+	s.Reason = &v
+	return s
+}
+
+func (s *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents) SetSource(v string) *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents {
+	s.Source = &v
+	return s
+}
+
+func (s *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents) SetTimestamp(v string) *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents {
+	s.Timestamp = &v
+	return s
+}
+
+func (s *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents) SetType(v string) *GetUpgradeStatusResponseBodyUpgradeTaskUpgradeStatusEvents {
+	s.Type = &v
 	return s
 }
 
@@ -9238,9 +9709,62 @@ func (s *ListTagResourcesResponse) SetBody(v *ListTagResourcesResponseBody) *Lis
 	return s
 }
 
+type MigrateClusterRequest struct {
+	OssBucketEndpoint *string `json:"oss_bucket_endpoint,omitempty" xml:"oss_bucket_endpoint,omitempty"`
+	OssBucketName     *string `json:"oss_bucket_name,omitempty" xml:"oss_bucket_name,omitempty"`
+}
+
+func (s MigrateClusterRequest) String() string {
+	return tea.Prettify(s)
+}
+
+func (s MigrateClusterRequest) GoString() string {
+	return s.String()
+}
+
+func (s *MigrateClusterRequest) SetOssBucketEndpoint(v string) *MigrateClusterRequest {
+	s.OssBucketEndpoint = &v
+	return s
+}
+
+func (s *MigrateClusterRequest) SetOssBucketName(v string) *MigrateClusterRequest {
+	s.OssBucketName = &v
+	return s
+}
+
+type MigrateClusterResponseBody struct {
+	ClusterId *string `json:"cluster_id,omitempty" xml:"cluster_id,omitempty"`
+	RequestId *string `json:"request_id,omitempty" xml:"request_id,omitempty"`
+	TaskId    *string `json:"task_id,omitempty" xml:"task_id,omitempty"`
+}
+
+func (s MigrateClusterResponseBody) String() string {
+	return tea.Prettify(s)
+}
+
+func (s MigrateClusterResponseBody) GoString() string {
+	return s.String()
+}
+
+func (s *MigrateClusterResponseBody) SetClusterId(v string) *MigrateClusterResponseBody {
+	s.ClusterId = &v
+	return s
+}
+
+func (s *MigrateClusterResponseBody) SetRequestId(v string) *MigrateClusterResponseBody {
+	s.RequestId = &v
+	return s
+}
+
+func (s *MigrateClusterResponseBody) SetTaskId(v string) *MigrateClusterResponseBody {
+	s.TaskId = &v
+	return s
+}
+
 type MigrateClusterResponse struct {
-	Headers    map[string]*string `json:"headers,omitempty" xml:"headers,omitempty" require:"true"`
-	StatusCode *int32             `json:"statusCode,omitempty" xml:"statusCode,omitempty" require:"true"`
+	Headers    map[string]*string          `json:"headers,omitempty" xml:"headers,omitempty" require:"true"`
+	StatusCode *int32                      `json:"statusCode,omitempty" xml:"statusCode,omitempty" require:"true"`
+	Body       *MigrateClusterResponseBody `json:"body,omitempty" xml:"body,omitempty" require:"true"`
 }
 
 func (s MigrateClusterResponse) String() string {
@@ -9258,6 +9782,11 @@ func (s *MigrateClusterResponse) SetHeaders(v map[string]*string) *MigrateCluste
 
 func (s *MigrateClusterResponse) SetStatusCode(v int32) *MigrateClusterResponse {
 	s.StatusCode = &v
+	return s
+}
+
+func (s *MigrateClusterResponse) SetBody(v *MigrateClusterResponseBody) *MigrateClusterResponse {
+	s.Body = v
 	return s
 }
 
@@ -9741,6 +10270,7 @@ func (s *ModifyClusterNodePoolRequestManagementUpgradeConfig) SetSurgePercentage
 
 type ModifyClusterNodePoolRequestNodeConfig struct {
 	KubeletConfiguration *ModifyClusterNodePoolRequestNodeConfigKubeletConfiguration `json:"kubelet_configuration,omitempty" xml:"kubelet_configuration,omitempty" type:"Struct"`
+	RolloutPolicy        *ModifyClusterNodePoolRequestNodeConfigRolloutPolicy        `json:"rollout_policy,omitempty" xml:"rollout_policy,omitempty" type:"Struct"`
 }
 
 func (s ModifyClusterNodePoolRequestNodeConfig) String() string {
@@ -9753,6 +10283,11 @@ func (s ModifyClusterNodePoolRequestNodeConfig) GoString() string {
 
 func (s *ModifyClusterNodePoolRequestNodeConfig) SetKubeletConfiguration(v *ModifyClusterNodePoolRequestNodeConfigKubeletConfiguration) *ModifyClusterNodePoolRequestNodeConfig {
 	s.KubeletConfiguration = v
+	return s
+}
+
+func (s *ModifyClusterNodePoolRequestNodeConfig) SetRolloutPolicy(v *ModifyClusterNodePoolRequestNodeConfigRolloutPolicy) *ModifyClusterNodePoolRequestNodeConfig {
+	s.RolloutPolicy = v
 	return s
 }
 
@@ -9842,6 +10377,23 @@ func (s *ModifyClusterNodePoolRequestNodeConfigKubeletConfiguration) SetSerializ
 
 func (s *ModifyClusterNodePoolRequestNodeConfigKubeletConfiguration) SetSystemReserved(v map[string]interface{}) *ModifyClusterNodePoolRequestNodeConfigKubeletConfiguration {
 	s.SystemReserved = v
+	return s
+}
+
+type ModifyClusterNodePoolRequestNodeConfigRolloutPolicy struct {
+	MaxUnavailable *int64 `json:"max_unavailable,omitempty" xml:"max_unavailable,omitempty"`
+}
+
+func (s ModifyClusterNodePoolRequestNodeConfigRolloutPolicy) String() string {
+	return tea.Prettify(s)
+}
+
+func (s ModifyClusterNodePoolRequestNodeConfigRolloutPolicy) GoString() string {
+	return s.String()
+}
+
+func (s *ModifyClusterNodePoolRequestNodeConfigRolloutPolicy) SetMaxUnavailable(v int64) *ModifyClusterNodePoolRequestNodeConfigRolloutPolicy {
+	s.MaxUnavailable = &v
 	return s
 }
 
@@ -11770,7 +12322,6 @@ type UpgradeClusterAddonsRequestBody struct {
 	ComponentName *string `json:"component_name,omitempty" xml:"component_name,omitempty"`
 	Config        *string `json:"config,omitempty" xml:"config,omitempty"`
 	NextVersion   *string `json:"next_version,omitempty" xml:"next_version,omitempty"`
-	Version       *string `json:"version,omitempty" xml:"version,omitempty"`
 }
 
 func (s UpgradeClusterAddonsRequestBody) String() string {
@@ -11793,11 +12344,6 @@ func (s *UpgradeClusterAddonsRequestBody) SetConfig(v string) *UpgradeClusterAdd
 
 func (s *UpgradeClusterAddonsRequestBody) SetNextVersion(v string) *UpgradeClusterAddonsRequestBody {
 	s.NextVersion = &v
-	return s
-}
-
-func (s *UpgradeClusterAddonsRequestBody) SetVersion(v string) *UpgradeClusterAddonsRequestBody {
-	s.Version = &v
 	return s
 }
 
@@ -12709,6 +13255,10 @@ func (client *Client) CreateClusterNodePoolWithOptions(ClusterId *string, reques
 
 	if !tea.BoolValue(util.IsUnset(request.MaxNodes)) {
 		body["max_nodes"] = request.MaxNodes
+	}
+
+	if !tea.BoolValue(util.IsUnset(tea.ToMap(request.NodeConfig))) {
+		body["node_config"] = request.NodeConfig
 	}
 
 	if !tea.BoolValue(util.IsUnset(tea.ToMap(request.NodepoolInfo))) {
@@ -13756,8 +14306,16 @@ func (client *Client) DescribeClusterAttachScriptsWithOptions(ClusterId *string,
 		body["arch"] = request.Arch
 	}
 
+	if !tea.BoolValue(util.IsUnset(request.Expired)) {
+		body["expired"] = request.Expired
+	}
+
 	if !tea.BoolValue(util.IsUnset(request.FormatDisk)) {
 		body["format_disk"] = request.FormatDisk
+	}
+
+	if !tea.BoolValue(util.IsUnset(request.IsPermanently)) {
+		body["is_permanently"] = request.IsPermanently
 	}
 
 	if !tea.BoolValue(util.IsUnset(request.KeepInstanceName)) {
@@ -14096,6 +14654,43 @@ func (client *Client) DescribeClusterResourcesWithOptions(ClusterId *string, hea
 		BodyType:    tea.String("array"),
 	}
 	_result = &DescribeClusterResourcesResponse{}
+	_body, _err := client.CallApi(params, req, runtime)
+	if _err != nil {
+		return _result, _err
+	}
+	_err = tea.Convert(_body, &_result)
+	return _result, _err
+}
+
+func (client *Client) DescribeClusterTasks(clusterId *string) (_result *DescribeClusterTasksResponse, _err error) {
+	runtime := &util.RuntimeOptions{}
+	headers := make(map[string]*string)
+	_result = &DescribeClusterTasksResponse{}
+	_body, _err := client.DescribeClusterTasksWithOptions(clusterId, headers, runtime)
+	if _err != nil {
+		return _result, _err
+	}
+	_result = _body
+	return _result, _err
+}
+
+func (client *Client) DescribeClusterTasksWithOptions(clusterId *string, headers map[string]*string, runtime *util.RuntimeOptions) (_result *DescribeClusterTasksResponse, _err error) {
+	clusterId = openapiutil.GetEncodeParam(clusterId)
+	req := &openapi.OpenApiRequest{
+		Headers: headers,
+	}
+	params := &openapi.Params{
+		Action:      tea.String("DescribeClusterTasks"),
+		Version:     tea.String("2015-12-15"),
+		Protocol:    tea.String("HTTPS"),
+		Pathname:    tea.String("/clusters/" + tea.StringValue(clusterId) + "/tasks"),
+		Method:      tea.String("GET"),
+		AuthType:    tea.String("AK"),
+		Style:       tea.String("ROA"),
+		ReqBodyType: tea.String("json"),
+		BodyType:    tea.String("json"),
+	}
+	_result = &DescribeClusterTasksResponse{}
 	_body, _err := client.CallApi(params, req, runtime)
 	if _err != nil {
 		return _result, _err
@@ -14639,6 +15234,10 @@ func (client *Client) DescribeKubernetesVersionMetadataWithOptions(request *Desc
 
 	if !tea.BoolValue(util.IsUnset(request.Runtime)) {
 		query["runtime"] = request.Runtime
+	}
+
+	if !tea.BoolValue(util.IsUnset(request.Test)) {
+		query["test"] = request.Test
 	}
 
 	req := &openapi.OpenApiRequest{
@@ -15571,11 +16170,11 @@ func (client *Client) ListTagResourcesWithOptions(tmpReq *ListTagResourcesReques
 	return _result, _err
 }
 
-func (client *Client) MigrateCluster(clusterId *string) (_result *MigrateClusterResponse, _err error) {
+func (client *Client) MigrateCluster(clusterId *string, request *MigrateClusterRequest) (_result *MigrateClusterResponse, _err error) {
 	runtime := &util.RuntimeOptions{}
 	headers := make(map[string]*string)
 	_result = &MigrateClusterResponse{}
-	_body, _err := client.MigrateClusterWithOptions(clusterId, headers, runtime)
+	_body, _err := client.MigrateClusterWithOptions(clusterId, request, headers, runtime)
 	if _err != nil {
 		return _result, _err
 	}
@@ -15583,10 +16182,24 @@ func (client *Client) MigrateCluster(clusterId *string) (_result *MigrateCluster
 	return _result, _err
 }
 
-func (client *Client) MigrateClusterWithOptions(clusterId *string, headers map[string]*string, runtime *util.RuntimeOptions) (_result *MigrateClusterResponse, _err error) {
+func (client *Client) MigrateClusterWithOptions(clusterId *string, request *MigrateClusterRequest, headers map[string]*string, runtime *util.RuntimeOptions) (_result *MigrateClusterResponse, _err error) {
+	_err = util.ValidateModel(request)
+	if _err != nil {
+		return _result, _err
+	}
 	clusterId = openapiutil.GetEncodeParam(clusterId)
+	body := map[string]interface{}{}
+	if !tea.BoolValue(util.IsUnset(request.OssBucketEndpoint)) {
+		body["oss_bucket_endpoint"] = request.OssBucketEndpoint
+	}
+
+	if !tea.BoolValue(util.IsUnset(request.OssBucketName)) {
+		body["oss_bucket_name"] = request.OssBucketName
+	}
+
 	req := &openapi.OpenApiRequest{
 		Headers: headers,
+		Body:    openapiutil.ParseToMap(body),
 	}
 	params := &openapi.Params{
 		Action:      tea.String("MigrateCluster"),
@@ -15597,7 +16210,7 @@ func (client *Client) MigrateClusterWithOptions(clusterId *string, headers map[s
 		AuthType:    tea.String("AK"),
 		Style:       tea.String("ROA"),
 		ReqBodyType: tea.String("json"),
-		BodyType:    tea.String("none"),
+		BodyType:    tea.String("json"),
 	}
 	_result = &MigrateClusterResponse{}
 	_body, _err := client.CallApi(params, req, runtime)

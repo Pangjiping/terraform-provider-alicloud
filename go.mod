@@ -50,4 +50,8 @@ require (
 	k8s.io/client-go v0.21.0-rc.0
 )
 
+replace (
+	github.com/alibabacloud-go/cs-20151215/v3 v3.0.14 => /Users/pjp/go/src/github.com/alibabacloud-go/cs-20151215
+)
+
 go 1.13

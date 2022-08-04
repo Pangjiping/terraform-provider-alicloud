@@ -37,7 +37,7 @@ This resource will help you to manage node pool in Kubernetes Cluster.
 
 -> **NOTE:** From version 1.177.0+, Support `kms_encryption_context`, `rds_instances`, `system_disk_snapshot_policy_id` and `cpu_policy`, add spot strategy `SpotAsPriceGo` and `NoSpot`.
 
--> **NOTE:** From version 1.180.0, Support worker nodes customized kubelet parameters by field `kubelet_configuration`.
+-> **NOTE:** From version 1.180.0, Support worker nodes customized kubelet parameters by field `kubelet_configuration` and `rollout_policy`.
 
 
 ## Example Usage
@@ -357,6 +357,11 @@ resource "alicloud_cs_kubernetes_node_pool" "default" {
       "memory" = "1Gi"
     }
   }
+
+  # rollout policy
+  rollout_policy {
+    max_unavailable = 1
+  }
 }
 ```
 
@@ -389,10 +394,10 @@ The following arguments are supported:
 * `node_name_mode` - (Optional) Each node name consists of a prefix, an IP substring, and a suffix. For example "customized,aliyun.com,5,test", if the node IP address is 192.168.0.55, the prefix is aliyun.com, IP substring length is 5, and the suffix is test, the node name will be aliyun.com00055test.
 * `user_data` - (Optional) Windows instances support batch and PowerShell scripts. If your script file is larger than 1 KB, we recommend that you upload the script to Object Storage Service (OSS) and pull it through the internal endpoint of your OSS bucket.
 * `tags` - (Optional) A Map of tags to assign to the resource. It will be applied for ECS instances finally. Detailed below.
-* `labels` - (Optional) A List of Kubernetes labels to assign to the nodes . Only labels that are applied with the ACK API are managed by this argument. Detailed below.
+* `labels` - (Optional) A List of Kubernetes labels to assign to the nodes . Only labels that are applied with the ACK API are managed by this argument. Detailed below. More information in [Labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/).
   * `key` - The label key.
   * `value` - The label value.
-* `taints` - (Optional) A List of Kubernetes taints to assign to the nodes. Detailed below.
+* `taints` - (Optional) A List of Kubernetes taints to assign to the nodes. Detailed below. More information in [Taints and Toleration](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
 * `management` - (Optional, Available in 1.109.1+) Managed node pool configuration. When using a managed node pool, the node key must use `key_name`. Detailed below.
 * `scaling_policy` - (Optional, Available in 1.127.0+) The scaling mode. Valid values: `release`, `recycle`, default is `release`. Standard mode(release): Create and release ECS instances based on requests.Swift mode(recycle): Create, stop, and restart ECS instances based on needs. New ECS instances are only created when no stopped ECS instance is avalible. This mode further accelerates the scaling process. Apart from ECS instances that use local storage, when an ECS instance is stopped, you are only chatged for storage space.
 * `scaling_config` - (Optional, Available in 1.111.0+) Auto scaling node pool configuration. For more details, see `scaling_config`. With auto-scaling is enabled, the nodes in the node pool will be labeled with `k8s.aliyun.com=true` to prevent system pods such as coredns, metrics-servers from being scheduled to elastic nodes, and to prevent node shrinkage from causing business abnormalities.
@@ -428,6 +433,8 @@ The following arguments are supported:
 * `system_disk_snapshot_policy_id` - (Optional, Available in 1.177.0+) The system disk snapshot policy id.
 * `cpu_policy` - (Optional, Available in 1.177.0+) Kubelet cpu policy. For Kubernetes 1.12.6 and later, its valid value is either `static` or `none`. Default to `none` and modification is not supported.
 * `kubelet_configuration` - (Optional, Available in 1.180.0+) Kubelet configuration parameters for worker nodes. Detailed below. More information in [Kubelet Configuration](https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/).
+* `rollout_policy` - (Optional, Available in 1.180.0+) Rollout policy is used to specify the strategy when the node pool is rolling update.
+  * `max_unavailable` - (Optional, Available in 1.180.0+) Maximum number of unavailable nodes during rolling upgrade. The value of this field should be greater than `0`, and if it's set to a number less than or equal to `0`, the default setting will be used.
 
 #### tags
 
