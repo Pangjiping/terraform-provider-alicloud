@@ -1017,3 +1017,48 @@ func (s *CsClient) ModifyNodePoolNodeConfig(clusterId, nodepoolId string, reques
 	}
 	return resp, err
 }
+
+func (s *CsClient) StartAlert() error {
+	return nil
+}
+
+func (s *CsClient) StopAlert() error {
+	return nil
+}
+
+func (s *CsClient) UpdateContactGroupForAlert(clusterId string) error {
+	resp, err := s.client.UpdateContactGroupForAlert(tea.String(clusterId))
+	if err != nil {
+		return WrapError(err)
+	}
+	if debugOn() {
+		requestMap := make(map[string]interface{})
+		requestMap["ClusterId"] = clusterId
+		addDebug("UpdateContactGroupForAlert", resp, requestMap)
+	}
+	return nil
+}
+
+func (s *CsClient) DeleteAlertContact() error {
+	resp, err := s.client.DeleteAlertContact()
+	if err != nil {
+		return WrapError(err)
+	}
+	if debugOn() {
+		requestMap := make(map[string]interface{})
+		addDebug("DeleteAlertContact", resp, requestMap)
+	}
+	return nil
+}
+
+func (s *CsClient) DeleteAlertContectGroup() error {
+	resp, err := s.client.DeleteAlertContactGroup()
+	if err != nil {
+		return WrapError(err)
+	}
+	if debugOn() {
+		requestMap := make(map[string]interface{})
+		addDebug("DeleteAlertContactGroup", resp, requestMap)
+	}
+	return nil
+}
